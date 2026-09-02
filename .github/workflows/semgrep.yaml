@@ -1,0 +1,46 @@
+name: Semgrep Security Gate
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  semgrep:
+    name: Semgrep Security Scan
+    runs-on: [self-hosted, Linux, X64, semgrep]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        id: semgrep
+        continue-on-error: true
+        run: |
+          mkdir -p semgrep-reports
+
+          semgrep scan \
+            --config auto \
+            --json \
+            --output semgrep-reports/semgrep.json \
+            --error
+
+      - name: Upload Semgrep report to dashboard
+        if: always()
+        run: |
+          curl --fail-with-body \
+            -X POST \
+            http://127.0.0.1:8080/api/scans \
+            -H "X-API-Token: ${{ secrets.SEMGREP_DASHBOARD_TOKEN }}" \
+            -F "report=@semgrep-reports/semgrep.json" \
+            -F "repository=${{ github.repository }}" \
+            -F "commit=${{ github.sha }}" \
+            -F "ref=${{ github.ref_name }}"
+
+      - name: Enforce Semgrep security gate
+        if: steps.semgrep.outcome == 'failure'
+        run: |
+          echo "Semgrep security gate failed."
+          exit 1
