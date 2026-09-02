@@ -29,15 +29,19 @@ jobs:
 
       - name: Upload Semgrep report to dashboard
         if: always()
+        env:
+          REPOSITORY: ${{ github.repository }}
+          COMMIT_SHA: ${{ github.sha }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           curl --fail-with-body \
             -X POST \
             http://127.0.0.1:8080/api/scans \
             -H "X-API-Token: ${{ secrets.SEMGREP_DASHBOARD_TOKEN }}" \
             -F "report=@semgrep-reports/semgrep.json" \
-            -F "repository=${{ github.repository }}" \
-            -F "commit=${{ github.sha }}" \
-            -F "ref=${{ github.ref_name }}"
+            -F "repository=$REPOSITORY" \
+            -F "commit=$COMMIT_SHA" \
+            -F "ref=$REF_NAME"
 
       - name: Enforce Semgrep security gate
         if: steps.semgrep.outcome == 'failure'
